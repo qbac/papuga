@@ -53,6 +53,31 @@ The list of languages and voices depends on the engine:
 > The settings only list languages the selected engine has voices for. If you switch to an
 > engine that does not support your current language, Papuga selects English.
 
+## More voices and your own voice (Piper)
+
+Papuga lists the official Piper voices (5 for Polish: `bass`, `darkman`, `gosia`, `mc_speech`,
+`mls_6892`). You can also use **any Piper voice you have as files**, including community and
+self-trained ones:
+
+1. Settings → engine **Piper** → **Add own voice…** → pick the `.onnx` file. A file with the
+   same name plus `.json` (`voice.onnx.json`) must sit next to it.
+2. Papuga copies both files to its voices folder (**Open voices folder** shows it;
+   `%LOCALAPPDATA%\Papuga\piper_voices\custom` on Windows) and lists the voice with a ★ under
+   the language declared in the model. You can also drop the two files into that folder yourself.
+
+Where to find voices: the official [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)
+and community uploads on Hugging Face. One example is
+[WitoldG/polish_piper_models](https://huggingface.co/WitoldG/polish_piper_models) — four extra
+Polish voices (`jarvis`, `justyna`, `meski`, `zenski`), fine-tuned from Piper's English checkpoint;
+the repository declares the MIT license but does not state where the training recordings come
+from, so check that before using them commercially. Papuga does not bundle third-party voices.
+
+Training your own voice is done outside Papuga with Piper's training tools
+([Piper](https://github.com/OHF-Voice/piper1-gpl)): the usual approach is to fine-tune an
+existing checkpoint on a few hundred to a couple of thousand clean recordings with transcripts
+(needs a GPU), then export the result to ONNX. Only record your own voice or voices you have
+permission to use.
+
 ## Settings
 
 Right-click the tray icon → *Settings...*:

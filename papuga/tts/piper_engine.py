@@ -44,11 +44,17 @@ class PiperTTSEngine(TTSEngine):
             raise TTSError(t("err_piper_unknown_voice", voice=self.voice_id))
         return info
 
-    def _paths(self) -> tuple[Path, Path]:
+    def _paths(self, info: dict | None = None) -> tuple[Path, Path]:
+        info = info or self._voice_info()
+        if info.get("custom"):  # własny model użytkownika — ścieżki z opisu głosu
+            return Path(info["model"]), Path(info["config"])
         return VOICES_DIR / f"{self.voice_id}.onnx", VOICES_DIR / f"{self.voice_id}.onnx.json"
 
     def needs_download(self) -> bool:
-        model, cfg = self._paths()
+        info = voices.find_piper_voice(self.voice_id) if self.voice_id else None
+        if info is None or info.get("custom"):
+            return False
+        model, cfg = self._paths(info)
         return not (model.exists() and cfg.exists())
 
     def download_size_mb(self) -> int:
@@ -93,14 +99,24 @@ class PiperTTSEngine(TTSEngine):
             return _voice_cache[key]
 
     def _ensure_voice(self, info: dict) -> tuple[Path, Path]:
+        model_path, config_path = self._paths(info)
+        if info.get("custom"):
+            if not (model_path.exists() and config_path.exists()):
+                raise TTSError(t("err_piper_unknown_voice", voice=self.voice_id))
+            return model_path, config_path
         VOICES_DIR.mkdir(parents=True, exist_ok=True)
-        model_path, config_path = self._paths()
         base = f"{HF_BASE}/{info['dir']}/{self.voice_id}"
         if not config_path.exists():
             _download(f"{base}.onnx.json", config_path)
         if not model_path.exists():
             _download(f"{base}.onnx", model_path, expected_size=info.get("size"))
         return model_path, config_path
+
+
+def forget_voice(model_path: Path | str) -> None:
+    """Usuwa model z pamięci podręcznej (np. po nadpisaniu pliku własnego głosu)."""
+    with _voice_lock:
+        _voice_cache.pop(str(model_path), None)
 
 
 _espeak_dir_cache: Path | None = None

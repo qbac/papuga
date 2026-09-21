@@ -6,7 +6,12 @@ oknie Tk, więc nie koliduje z pętlą ikony w zasobniku.
 from __future__ import annotations
 
 import gc
+import os
+import subprocess
+import sys
 import webbrowser
+from pathlib import Path
+from tkinter import filedialog
 
 import customtkinter as ctk
 
@@ -49,6 +54,10 @@ def _run_settings_window(app) -> None:
     btn_row.pack(fill="x", padx=20, pady=(6, 8), side="bottom")
     status_label = ctk.CTkLabel(win, text="", text_color="#c62828", wraplength=450, justify="left")
     status_label.pack(fill="x", padx=24, side="bottom")
+
+    def set_status(text: str, ok: bool = False) -> None:
+        """Komunikat pod treścią: czerwony = błąd, zielony = potwierdzenie."""
+        status_label.configure(text=text, text_color="#2e7d32" if ok else "#c62828")
 
     scroll = ctk.CTkScrollableFrame(win, fg_color="transparent")
     scroll.pack(fill="both", expand=True, padx=(12, 8), pady=(8, 0))
@@ -148,6 +157,44 @@ def _run_settings_window(app) -> None:
     dynamic_frame = ctk.CTkFrame(scroll, fg_color="transparent")
     dynamic_frame.pack(fill="x", padx=4, pady=(6, 0))
 
+    def add_custom_voice() -> None:
+        """Wybór własnego modelu Pipera (.onnx + .onnx.json obok) i dodanie go do listy."""
+        chosen = filedialog.askopenfilename(
+            parent=win, title=t("piper_add_voice"), filetypes=[("Piper voice (.onnx)", "*.onnx")]
+        )
+        if not chosen:
+            return
+        try:
+            voice = voices.import_custom_voice(Path(chosen))
+        except ValueError as exc:
+            key, param = (exc.args + ("",))[:2]
+            set_status(t(key, name=param))
+            return
+        from papuga.tts import piper_engine
+
+        piper_engine.forget_voice(voice["model"])  # gdyby to było nadpisanie istniejącego pliku
+        lang = voices._custom_language(json_of(voice), voice["name"])
+        state["lang"] = lang
+        state["edge_voice"] = voices.default_edge_voice(lang)
+        state["piper_voice"] = voice["id"]
+        refresh_language_menu()
+        render_dynamic_section()
+        if fit_window_hook["fn"]:
+            win.after_idle(lambda: fit_window_hook["fn"](grow_only=True))
+        set_status(t("custom_added", name=voice["name"]), ok=True)
+
+    def json_of(voice: dict) -> dict:
+        import json
+
+        return json.loads(Path(voice["config"]).read_text(encoding="utf-8"))
+
+    def open_voices_folder() -> None:
+        voices.CUSTOM_DIR.mkdir(parents=True, exist_ok=True)
+        if sys.platform == "win32":
+            os.startfile(voices.CUSTOM_DIR)  # noqa: S606
+        else:
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(voices.CUSTOM_DIR)])
+
     def render_dynamic_section() -> None:
         for child in dynamic_frame.winfo_children():
             child.destroy()
@@ -167,6 +214,16 @@ def _run_settings_window(app) -> None:
                 text=t("edge_note" if engine == "edge" else "piper_note"),
                 text_color="gray", wraplength=430, justify="left",
             ).pack(fill="x", pady=(6, 0))
+            if engine == "piper":
+                voice_buttons = ctk.CTkFrame(dynamic_frame, fg_color="transparent")
+                voice_buttons.pack(fill="x", pady=(8, 0))
+                ctk.CTkButton(
+                    voice_buttons, text=t("piper_add_voice"), command=add_custom_voice
+                ).pack(side="left")
+                ctk.CTkButton(
+                    voice_buttons, text=t("piper_open_folder"), fg_color="transparent",
+                    border_width=1, text_color=("gray10", "gray90"), command=open_voices_folder,
+                ).pack(side="left", padx=(8, 0))
 
         else:  # api
             ctk.CTkLabel(dynamic_frame, text=t("provider"), anchor="w").pack(fill="x")
@@ -259,12 +316,12 @@ def _run_settings_window(app) -> None:
                 capture_state["capture"] = None
                 if capture.result:
                     var.set(capture.result)
-                    status_label.configure(text="")
+                    set_status("")
                 button.configure(text=hk.prettify(var.get()))
                 app._register_hotkeys()  # skróty były wstrzymane na czas nagrywania
                 return
             if capture.error:
-                status_label.configure(text=t(capture.error))
+                set_status(t(capture.error))
             held = capture.preview
             button.configure(text=f"{held} + …" if held else t("press_hotkey"))
             win.after(50, poll)
@@ -278,7 +335,7 @@ def _run_settings_window(app) -> None:
             capture_state["button"] = button
             capture.start()
             button.configure(text=t("press_hotkey"))
-            status_label.configure(text="")
+            set_status("")
             poll()
 
         button.configure(command=start_capture)
@@ -331,9 +388,9 @@ def _run_settings_window(app) -> None:
         def toggle_autostart() -> None:
             try:
                 autostart.set_enabled(not autostart.is_enabled())
-                status_label.configure(text="")
+                set_status("")
             except OSError as exc:
-                status_label.configure(text=t("autostart_failed", error=exc))
+                set_status(t("autostart_failed", error=exc))
             refresh_autostart()
 
         auto_button.configure(command=toggle_autostart)
@@ -393,16 +450,16 @@ def _run_settings_window(app) -> None:
             api_voice=api_voice_var.get().strip(),
         )
         if not new_settings.hotkey_read or not new_settings.hotkey_stop:
-            status_label.configure(text=t("fill_hotkeys"))
+            set_status(t("fill_hotkeys"))
             return
         if new_settings.hotkey_read == new_settings.hotkey_stop:
-            status_label.configure(text=t("hotkeys_differ"))
+            set_status(t("hotkeys_differ"))
             return
         cfg.save(new_settings)
         try:
             app.reload_settings()
         except Exception as exc:  # noqa: BLE001
-            status_label.configure(text=t("saved_hotkeys_failed", error=exc))
+            set_status(t("saved_hotkeys_failed", error=exc))
             return
         win.destroy()
 

@@ -7,9 +7,14 @@ from __future__ import annotations
 import ctypes
 import json
 import locale
+import shutil
 import sys
 from functools import lru_cache
 from pathlib import Path
+
+from platformdirs import user_data_dir
+
+from papuga import APP_NAME
 
 DATA_FILE = Path(__file__).resolve().parent / "data" / "voices.json"
 FALLBACK_LANGUAGE = "en"
@@ -46,15 +51,95 @@ def edge_voices(lang: str) -> list[dict]:
 
 
 def piper_voices(lang: str) -> list[dict]:
-    return catalog()["piper"].get(lang, [])
+    """Głosy z katalogu + własne modele użytkownika (folder CUSTOM_DIR)."""
+    return [*catalog()["piper"].get(lang, []), *custom_piper_voices().get(lang, [])]
 
 
 def find_piper_voice(voice_id: str) -> dict | None:
-    for voices in catalog()["piper"].values():
-        for v in voices:
+    if voice_id.startswith(CUSTOM_PREFIX):
+        for group in custom_piper_voices().values():
+            for v in group:
+                if v["id"] == voice_id:
+                    return v
+        return None
+    for group in catalog()["piper"].values():
+        for v in group:
             if v["id"] == voice_id:
                 return v
     return None
+
+
+# --- Własne modele Pipera (użytkownik wrzuca .onnx + .onnx.json) -------------------------
+CUSTOM_PREFIX = "custom:"
+CUSTOM_DIR = Path(user_data_dir(APP_NAME, appauthor=False)) / "piper_voices" / "custom"
+
+
+def _family(raw: str) -> str:
+    fam = raw.replace("_", "-").split("-")[0].lower()
+    return "no" if fam == "nb" else fam
+
+
+def _custom_language(info: dict, stem: str) -> str:
+    lang = info.get("language") or {}
+    raw = lang.get("family") or lang.get("code") or (info.get("espeak") or {}).get("voice") or stem
+    return _family(str(raw))
+
+
+def custom_piper_voices() -> dict[str, list[dict]]:
+    """Własne głosy z CUSTOM_DIR pogrupowane po języku (pomija pliki bez .onnx.json lub
+    z nieznanym językiem)."""
+    found: dict[str, list[dict]] = {}
+    if not CUSTOM_DIR.is_dir():
+        return found
+    for onnx in sorted(CUSTOM_DIR.glob("*.onnx")):
+        cfg = onnx.with_name(onnx.name + ".json")
+        try:
+            info = json.loads(cfg.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        fam = _custom_language(info, onnx.stem)
+        if not is_known_language(fam):
+            continue
+        found.setdefault(fam, []).append({
+            "id": f"{CUSTOM_PREFIX}{onnx.stem}",
+            "name": onnx.stem,
+            "quality": "custom",
+            "locale": (info.get("language") or {}).get("code") or fam,
+            "country": "",
+            "custom": True,
+            "model": str(onnx),
+            "config": str(cfg),
+            "size": onnx.stat().st_size,
+        })
+    return found
+
+
+def import_custom_voice(onnx_path: Path) -> dict:
+    """Kopiuje wskazany model (.onnx) razem z .onnx.json do CUSTOM_DIR i zwraca opis głosu.
+
+    Rzuca ValueError(klucz_tłumaczenia, parametr) — UI tłumaczy to przez i18n.
+    """
+    onnx_path = Path(onnx_path)
+    cfg_path = onnx_path.with_name(onnx_path.name + ".json")
+    if not cfg_path.exists():
+        raise ValueError("custom_no_json", cfg_path.name)
+    try:
+        info = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("custom_bad_json", str(exc)) from exc
+    fam = _custom_language(info, onnx_path.stem)
+    if not is_known_language(fam):
+        raise ValueError("custom_bad_lang", fam)
+
+    CUSTOM_DIR.mkdir(parents=True, exist_ok=True)
+    for src in (onnx_path, cfg_path):
+        dest = CUSTOM_DIR / src.name
+        if src.resolve() != dest.resolve():
+            shutil.copy2(src, dest)
+    for v in custom_piper_voices().get(fam, []):
+        if v["id"] == f"{CUSTOM_PREFIX}{onnx_path.stem}":
+            return v
+    raise ValueError("custom_bad_json", "copy failed")
 
 
 # Odmiana regionalna preferowana przy wyborze domyślnego głosu (gdy nie jest to "xx-XX").
@@ -87,7 +172,9 @@ def default_edge_voice(lang: str) -> str:
 
 
 def default_piper_voice(lang: str) -> str:
-    voices = piper_voices(lang)
+    voices = catalog()["piper"].get(lang, [])  # domyślnie zawsze głos z katalogu, nie własny
+    if not voices:
+        voices = piper_voices(lang)
     if not voices:
         return ""
     return min(
@@ -103,6 +190,8 @@ def edge_voice_label(v: dict) -> str:
 
 def piper_voice_label(v: dict) -> str:
     size = f", {round(v['size'] / 1_000_000)} MB" if v.get("size") else ""
+    if v.get("custom"):
+        return f"★ {v['name']} — custom{size}"
     return f"{v['name']} — {v['locale']}, {v['quality']}{size}"
 
 

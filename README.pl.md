@@ -53,6 +53,30 @@ Lista języków i głosów zależy od silnika:
 > Ustawienia pokazują tylko języki, dla których wybrany silnik ma głosy. Jeśli przełączysz
 > się na silnik, który nie obsługuje Twojego obecnego języka, Papuga wybierze angielski.
 
+## Więcej głosów i własny głos (Piper)
+
+Papuga pokazuje oficjalne głosy Pipera (dla polskiego 5: `bass`, `darkman`, `gosia`,
+`mc_speech`, `mls_6892`). Możesz też użyć **dowolnego głosu Pipera, który masz w plikach**,
+także społecznościowego i własnego:
+
+1. Ustawienia → silnik **Piper** → **Dodaj własny głos…** → wskaż plik `.onnx`. Obok musi leżeć
+   plik o tej samej nazwie z dopiskiem `.json` (`glos.onnx.json`).
+2. Papuga skopiuje oba pliki do swojego folderu z głosami (**Otwórz folder z głosami** go
+   pokaże; w Windows `%LOCALAPPDATA%\Papuga\piper_voices\custom`) i doda głos z gwiazdką ★
+   w języku zapisanym w modelu. Dwa pliki możesz też wrzucić do tego folderu ręcznie.
+
+Skąd brać głosy: oficjalne [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)
+oraz wrzutki społeczności na Hugging Face. Przykład to
+[WitoldG/polish_piper_models](https://huggingface.co/WitoldG/polish_piper_models) — cztery
+dodatkowe polskie głosy (`jarvis`, `justyna`, `meski`, `zenski`), dotrenowane z angielskiego
+checkpointu Pipera; repozytorium deklaruje licencję MIT, ale nie podaje, skąd pochodzą nagrania
+treningowe, więc sprawdź to przed użyciem komercyjnym. Papuga nie dołącza głosów stron trzecich.
+
+Wytrenowanie własnego głosu robi się poza Papugą, narzędziami treningowymi
+[Pipera](https://github.com/OHF-Voice/piper1-gpl): zwykle dotrenowuje się istniejący checkpoint
+na kilkuset–kilku tysiącach czystych nagrań z transkrypcjami (potrzebna karta graficzna),
+a wynik eksportuje do ONNX. Nagrywaj tylko własny głos albo taki, do którego masz zgodę.
+
 ## Ustawienia
 
 Prawy klik na ikonę trayu → *Ustawienia...*:
