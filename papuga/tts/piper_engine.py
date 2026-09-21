@@ -8,6 +8,9 @@ i trzymany na dysku. Lista głosów pochodzi z papuga/data/voices.json.
 """
 from __future__ import annotations
 
+import os
+import shutil
+import sys
 import threading
 import uuid
 import wave
@@ -84,7 +87,9 @@ class PiperTTSEngine(TTSEngine):
         key = str(model_path)
         with _voice_lock:
             if key not in _voice_cache:
-                _voice_cache[key] = PiperVoice.load(model_path, config_path=config_path)
+                _voice_cache[key] = PiperVoice.load(
+                    model_path, config_path=config_path, espeak_data_dir=_safe_espeak_data_dir()
+                )
             return _voice_cache[key]
 
     def _ensure_voice(self, info: dict) -> tuple[Path, Path]:
@@ -96,6 +101,66 @@ class PiperTTSEngine(TTSEngine):
         if not model_path.exists():
             _download(f"{base}.onnx", model_path, expected_size=info.get("size"))
         return model_path, config_path
+
+
+_espeak_dir_cache: Path | None = None
+
+
+def _safe_espeak_data_dir() -> Path:
+    """Ścieżka do danych espeak-ng zawierająca WYŁĄCZNIE znaki ASCII.
+
+    Biblioteka C espeak-ng nie radzi sobie z nie-ASCII w ścieżce do swoich danych (cofa się
+    do ścieżki wkompilowanej na maszynie budującej i pada). W samodzielnym .exe dane
+    rozpakowują się do TEMP, a ten zawiera nazwę konta — np. „C:\\Users\\Łukasz\\…".
+    """
+    global _espeak_dir_cache
+    if _espeak_dir_cache is not None:
+        return _espeak_dir_cache
+
+    from piper.phonemize_espeak import ESPEAK_DATA_DIR
+
+    src = Path(ESPEAK_DATA_DIR)
+    if str(src).isascii():
+        _espeak_dir_cache = src
+        return src
+
+    short = _short_path(src)  # nazwa 8.3, o ile wolumin je tworzy
+    if short and short.isascii() and (Path(short) / "phontab").exists():
+        _espeak_dir_cache = Path(short)
+        return _espeak_dir_cache
+
+    # Kopia (ok. 18 MB, robiona raz) w katalogu o ASCII-owej ścieżce.
+    for base in (os.environ.get("ProgramData"), os.environ.get("PUBLIC"), r"C:\Users\Public"):
+        if not base or not base.isascii():
+            continue
+        dest = Path(base) / "Papuga" / "espeak-ng-data"
+        try:
+            if not (dest / "phontab").exists():
+                tmp = dest.with_name(dest.name + ".tmp")
+                shutil.rmtree(tmp, ignore_errors=True)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(src, tmp)
+                shutil.rmtree(dest, ignore_errors=True)
+                os.replace(tmp, dest)
+            _espeak_dir_cache = dest
+            return dest
+        except OSError:
+            continue
+
+    return src  # ostatnia deska ratunku — może się nie udać przy nie-ASCII
+
+
+def _short_path(path: Path) -> str:
+    if sys.platform != "win32":
+        return ""
+    try:
+        import ctypes
+
+        buf = ctypes.create_unicode_buffer(1024)
+        n = ctypes.windll.kernel32.GetShortPathNameW(str(path), buf, len(buf))
+        return buf.value if 0 < n < len(buf) else ""
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _download(url: str, dest: Path, expected_size: int | None = None) -> None:

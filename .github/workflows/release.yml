@@ -50,6 +50,17 @@ jobs:
           Get-Content "$env:LOCALAPPDATA\Papuga\Logs\papuga.log" -Encoding UTF8 | Select-String "SELFTEST"
           if ($p.ExitCode -ne 0) { Write-Error "Samotest nie przeszedł (kod $($p.ExitCode))"; exit 1 }
 
+      - name: Samotest ze ścieżką TEMP z polskimi znakami (regresja espeak-ng)
+        shell: pwsh
+        run: |
+          # .exe rozpakowuje się do TEMP; espeak-ng nie znosi nie-ASCII w ścieżce do danych
+          $odd = "C:\Temp\Za$([char]0x17C)$([char]0xF3)$([char]0x142)$([char]0x107) g$([char]0x119)$([char]0x15B)l$([char]0x105)"
+          New-Item -ItemType Directory -Force $odd | Out-Null
+          $env:TEMP = $odd; $env:TMP = $odd
+          $p = Start-Process dist/Papuga.exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content "$env:LOCALAPPDATA\Papuga\Logs\papuga.log" -Encoding UTF8 | Select-String "SELFTEST" | Select-Object -Last 6
+          if ($p.ExitCode -ne 0) { Write-Error "Samotest (TEMP z polskimi znakami) nie przeszedł (kod $($p.ExitCode))"; exit 1 }
+
       - name: Nazwa pliku i suma kontrolna
         shell: pwsh
         run: |
