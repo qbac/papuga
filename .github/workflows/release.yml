@@ -1,0 +1,68 @@
+name: Release
+
+# Wydanie: zwiększ __version__ w papuga/__init__.py, zacommituj, potem
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+# Workflow zbuduje Papuga.exe i opublikuje go w GitHub Releases.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Odczytaj wersję z kodu
+        shell: bash
+        run: |
+          VERSION=$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('papuga/__init__.py', encoding='utf-8').read()).group(1))")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Wersja w kodzie: $VERSION"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME nie zgadza się z __version__ = $VERSION"
+            exit 1
+          fi
+
+      - name: Zależności
+        run: pip install -r requirements.txt
+
+      - name: Ikony
+        run: python scripts/generate_icon.py
+
+      - name: Build (PyInstaller)
+        run: pyinstaller papuga.spec --noconfirm
+
+      - name: Nazwa pliku i suma kontrolna
+        shell: pwsh
+        run: |
+          $name = "Papuga-v$env:VERSION-windows-x64.exe"
+          Copy-Item dist/Papuga.exe "dist/$name"
+          $hash = (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name" | Out-File -Encoding ascii "dist/$name.sha256"
+          echo "ASSET=dist/$name" >> $env:GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Papuga-windows-x64
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+
+      - name: Opublikuj wydanie
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$ASSET" "$ASSET.sha256" \
+            --title "Papuga $GITHUB_REF_NAME" --generate-notes

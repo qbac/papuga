@@ -1,0 +1,23 @@
+# Papuga — zależności
+# Rdzeń aplikacji (tray, hotkey, schowek, audio)
+pystray>=0.19.5
+Pillow>=10.0.0
+pynput>=1.7.6
+pyperclip>=1.8.2
+pygame>=2.5.0
+platformdirs>=4.0.0
+
+# Silnik edge-tts (darmowe głosy neuronowe Microsoft)
+edge-tts>=6.1.0
+
+# Silnik Piper (lokalny, offline TTS)
+piper-tts>=1.2.0
+
+# Silnik API (OpenAI-compatible / ElevenLabs) — tylko żądania HTTP
+requests>=2.31.0
+
+# GUI ustawień
+customtkinter>=5.2.0
+
+# Packaging do .exe (tylko Windows / build)
+pyinstaller>=6.3.0; sys_platform == "win32"
