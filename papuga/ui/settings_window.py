@@ -11,6 +11,7 @@ import webbrowser
 import customtkinter as ctk
 
 from papuga import APP_NAME, AUTHOR, AUTHOR_URL, __version__
+from papuga import autostart
 from papuga import config as cfg
 from papuga import hotkey as hk
 from papuga import i18n, voices
@@ -51,6 +52,23 @@ def _run_settings_window(app) -> None:
 
     scroll = ctk.CTkScrollableFrame(win, fg_color="transparent")
     scroll.pack(fill="both", expand=True, padx=(12, 8), pady=(8, 0))
+
+    def update_scrollbar(_event=None) -> None:
+        """Pasek przewijania tylko wtedy, gdy zawartość nie mieści się w oknie."""
+        try:
+            canvas = scroll._parent_canvas
+            bbox = canvas.bbox("all")
+            overflow = bool(bbox) and (bbox[3] - bbox[1]) > canvas.winfo_height() + 1
+            if overflow:
+                scroll._scrollbar.grid()
+            else:
+                scroll._scrollbar.grid_remove()
+        except Exception:  # noqa: BLE001 — wnętrze customtkinter; w razie zmian zostaw domyślny pasek
+            pass
+
+    # Zawartość zmienia wysokość (np. po zmianie silnika), okno zmienia rozmiar — sprawdzaj oba.
+    scroll.bind("<Configure>", lambda _e: win.after_idle(update_scrollbar), add="+")
+    scroll._parent_canvas.bind("<Configure>", lambda _e: win.after_idle(update_scrollbar), add="+")
 
     ctk.CTkLabel(scroll, text="Papuga", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(4, 0))
     ctk.CTkLabel(scroll, text=t("tagline"), text_color="gray").pack(pady=(0, 6))
@@ -189,9 +207,13 @@ def _run_settings_window(app) -> None:
         language_var.set(voices.language_label(state["lang"]))
         sync_voice_vars()
 
+    fit_window_hook: dict = {"fn": None}  # ustawiane na końcu (fit_window powstaje po zbudowaniu UI)
+
     def on_engine_change(_value) -> None:
         refresh_language_menu()
         render_dynamic_section()
+        if fit_window_hook["fn"]:  # silnik API ma więcej pól — okno może urosnąć, nie kurczy się
+            win.after_idle(lambda: fit_window_hook["fn"](grow_only=True))
 
     def on_language_change(label: str) -> None:
         by_label = {voices.language_label(c): c for c in languages_for(engine_key())}
@@ -273,18 +295,49 @@ def _run_settings_window(app) -> None:
     ).pack(fill="x", padx=4, pady=(4, 0))
 
     # --- Prędkość mowy -------------------------------------------------
-    ctk.CTkLabel(scroll, text=t("speed"), anchor="w").pack(fill="x", **pad)
-    speed_label = ctk.CTkLabel(scroll, text=f"{settings.speed:.2f}x")
+    # Nagłówek z bieżącą wartością (wartość obok suwaka byłaby wypychana poza okno).
+    speed_header = ctk.CTkFrame(scroll, fg_color="transparent")
+    speed_header.pack(fill="x", padx=4, pady=(10, 0))
+    speed_label = ctk.CTkLabel(
+        speed_header, text=f"{settings.speed:.2f}x", font=ctk.CTkFont(weight="bold")
+    )
+    speed_label.pack(side="right")
+    ctk.CTkLabel(speed_header, text=t("speed"), anchor="w").pack(side="left")
 
     def on_speed_change(value) -> None:
         speed_label.configure(text=f"{float(value):.2f}x")
 
-    speed_row = ctk.CTkFrame(scroll, fg_color="transparent")
-    speed_row.pack(fill="x", padx=4, pady=(4, 0))
     ctk.CTkSlider(
-        speed_row, from_=0.5, to=2.0, variable=speed_var, command=on_speed_change
-    ).pack(side="left", fill="x", expand=True)
-    speed_label.pack(in_=speed_row, side="left", padx=(10, 0))
+        scroll, from_=0.5, to=2.0, number_of_steps=30,  # kroki co 0,05x
+        variable=speed_var, command=on_speed_change,
+    ).pack(fill="x", padx=4, pady=(6, 0))
+
+    # --- Autostart: jeden przycisk dodaje/usuwa, działa od razu (bez „Zapisz”) ---
+    if autostart.supported():
+        auto_row = ctk.CTkFrame(scroll, fg_color="transparent")
+        auto_row.pack(fill="x", padx=4, pady=(14, 0))
+        auto_status = ctk.CTkLabel(auto_row, text="", anchor="w")
+        auto_status.pack(side="left")
+        auto_button = ctk.CTkButton(auto_row, text="", width=180)
+        auto_button.pack(side="right")
+
+        def refresh_autostart() -> None:
+            on = autostart.is_enabled()
+            auto_status.configure(
+                text=f"{t('autostart')}: {t('autostart_on' if on else 'autostart_off')}"
+            )
+            auto_button.configure(text=t("autostart_remove" if on else "autostart_add"))
+
+        def toggle_autostart() -> None:
+            try:
+                autostart.set_enabled(not autostart.is_enabled())
+                status_label.configure(text="")
+            except OSError as exc:
+                status_label.configure(text=t("autostart_failed", error=exc))
+            refresh_autostart()
+
+        auto_button.configure(command=toggle_autostart)
+        refresh_autostart()
 
     # --- Język interfejsu ------------------------------------------------
     ctk.CTkLabel(scroll, text=t("ui_language"), anchor="w").pack(fill="x", **pad)
@@ -330,7 +383,7 @@ def _run_settings_window(app) -> None:
             hotkey_read=read_hotkey_var.get().strip(),
             hotkey_stop=stop_hotkey_var.get().strip(),
             speed=round(speed_var.get(), 2),
-            start_with_system=settings.start_with_system,
+            start_with_system=autostart.is_enabled(),
             edge_voice=edge_id,
             piper_voice_id=piper_id,
             api_provider=api_provider_var.get(),
@@ -359,4 +412,22 @@ def _run_settings_window(app) -> None:
     ).pack(side="right", padx=(0, 10))
     win.protocol("WM_DELETE_WINDOW", close)
 
+    def fit_window(grow_only: bool = False) -> None:
+        """Wysokość okna dopasowana do zawartości (max: ekran). Pasek przewijania pokaże się
+        dopiero, gdy zawartość naprawdę się nie mieści (np. mały ekran)."""
+        try:
+            win.update_idletasks()
+            factor = win._get_window_scaling()  # CTk skaluje geometry() o DPI
+            fixed = footer.winfo_reqheight() + btn_row.winfo_reqheight() + status_label.winfo_reqheight()
+            want = (scroll.winfo_reqheight() + fixed + 48) / factor
+            limit = (win.winfo_screenheight() - 110) / factor
+            height = int(min(want, limit))
+            if grow_only:
+                height = max(height, int(win.winfo_height() / factor))
+            win.geometry(f"500x{height}")
+        except Exception:  # noqa: BLE001 — w razie problemu zostaje rozmiar domyślny
+            pass
+
+    fit_window()
+    fit_window_hook["fn"] = fit_window
     win.mainloop()

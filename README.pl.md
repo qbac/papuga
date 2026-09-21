@@ -68,9 +68,11 @@ Konfiguracja zapisuje się automatycznie (`%APPDATA%\Papuga\config.json`). Logi:
 `%LOCALAPPDATA%\Papuga\Logs\papuga.log`. Pobrane głosy Pipera:
 `%LOCALAPPDATA%\Papuga\piper_voices`.
 
-### Autostart z systemem Windows
+### Uruchamianie z systemem
 
-`Win+R` → `shell:startup` → wrzuć tam skrót do `Papuga.exe`.
+W ustawieniach jeden przycisk — **Dodaj do autostartu** / **Usuń z autostartu** — włącza lub
+wyłącza autostart (Windows: wpis dla bieżącego użytkownika, bez uprawnień administratora).
+Działa od razu, bez klikania *Zapisz*.
 
 ## Uruchomienie ze źródeł
 

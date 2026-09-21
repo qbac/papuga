@@ -68,9 +68,11 @@ The config is saved automatically (`%APPDATA%\Papuga\config.json` on Windows). L
 `%LOCALAPPDATA%\Papuga\Logs\papuga.log`. Downloaded Piper voices:
 `%LOCALAPPDATA%\Papuga\piper_voices`.
 
-### Start with Windows
+### Start with the system
 
-`Win+R` → `shell:startup` → put a shortcut to `Papuga.exe` there.
+In the settings, one button — **Add to startup** / **Remove from startup** — turns
+autostart on or off (Windows: a per-user entry, no administrator rights needed). It takes
+effect immediately, without pressing *Save*.
 
 ## Run from source
 
