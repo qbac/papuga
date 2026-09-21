@@ -16,6 +16,7 @@ from pathlib import Path
 
 import requests
 
+from papuga.i18n import t
 from papuga.tts.base import TTSEngine, TTSError
 
 
@@ -38,7 +39,7 @@ class ApiTTSEngine(TTSEngine):
 
     def synthesize(self, text: str, out_dir: Path, speed: float = 1.0) -> Path:
         if not self.api_key:
-            raise TTSError("Silnik API: brak klucza API w ustawieniach")
+            raise TTSError(t("err_api_no_key"))
 
         out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -63,7 +64,7 @@ class ApiTTSEngine(TTSEngine):
             resp = requests.post(self.base_url, json=payload, headers=headers, timeout=60)
             resp.raise_for_status()
         except requests.RequestException as exc:
-            raise TTSError(f"Silnik API: błąd zapytania ({exc})") from exc
+            raise TTSError(t("err_api_request", error=exc)) from exc
         return resp.content, "mp3"
 
     def _call_elevenlabs(self, text: str) -> tuple[bytes, str]:
@@ -81,5 +82,5 @@ class ApiTTSEngine(TTSEngine):
             resp = requests.post(url, json=payload, headers=headers, timeout=60)
             resp.raise_for_status()
         except requests.RequestException as exc:
-            raise TTSError(f"ElevenLabs: błąd zapytania ({exc})") from exc
+            raise TTSError(t("err_elevenlabs_request", error=exc)) from exc
         return resp.content, "mp3"

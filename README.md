@@ -1,95 +1,80 @@
 # Papuga 🦜
 
-[![Najnowsze wydanie](https://img.shields.io/github/v/release/qbac/papuga?label=wydanie)](https://github.com/qbac/papuga/releases/latest)
-[![Licencja: MIT](https://img.shields.io/badge/licencja-MIT-blue.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/qbac/papuga?label=release)](https://github.com/qbac/papuga/releases/latest)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
-Zaznacz tekst gdziekolwiek w systemie, wciśnij skrót klawiszowy, posłuchaj.
-Aplikacja siedzi w zasobniku systemowym (tray) i działa w tle.
+**English** · [Polski](README.pl.md)
 
-## Pobieranie (Windows)
+Select text anywhere on your computer, press a shortcut, and listen to it.
+Papuga lives in the system tray, reads **80 languages**, and works **fully offline** if you want it to.
 
-Gotowy plik **`Papuga-vX.Y.Z-windows-x64.exe`** znajdziesz w
-[najnowszym wydaniu](https://github.com/qbac/papuga/releases/latest). To jeden
-samodzielny plik — nie wymaga instalacji ani Pythona. Pobierz, uruchom, ikona pojawi
-się w zasobniku systemowym (może być schowana pod strzałką „pokaż ukryte ikony”).
+## Download (Windows)
 
-Obok pliku leży suma kontrolna `.sha256`. Sprawdzisz ją w PowerShellu:
+Get **`Papuga-vX.Y.Z-windows-x64.exe`** from the
+[latest release](https://github.com/qbac/papuga/releases/latest). It is a single,
+self-contained file: no installation, no Python, nothing else to set up. Run it and the
+icon appears in the system tray (it may hide under the “show hidden icons” arrow).
+
+A `.sha256` checksum sits next to the file:
 
 ```powershell
-Get-FileHash .\Papuga-v0.1.0-windows-x64.exe -Algorithm SHA256
+Get-FileHash .\Papuga-v0.2.0-windows-x64.exe -Algorithm SHA256
 ```
 
-> **Windows SmartScreen** może ostrzec przed uruchomieniem („Nieznany wydawca”),
-> bo plik nie jest podpisany certyfikatem. Wybierz *Więcej informacji → Uruchom mimo to*.
-> Kod źródłowy jest w tym repozytorium, a plik buduje publiczny workflow
-> ([`release.yml`](.github/workflows/release.yml)).
+> **Windows SmartScreen** may warn about an “unknown publisher”, because the file is not
+> code-signed. Choose *More info → Run anyway*. The source is in this repository and the file
+> is built by a public workflow ([`release.yml`](.github/workflows/release.yml)).
 
-Wersja aplikacji (i link do autora) widoczne są w stopce okna ustawień.
+## How it works
 
-## Jak to działa
+1. Select any text — in a browser, Word, a PDF, an e-mail, anywhere.
+2. Press the global shortcut (default **Ctrl+Alt+R**).
+3. Papuga copies the selection, turns it into speech and plays it. Long texts are split into
+   sentences: speech starts after the first one while the rest is generated in the background.
+4. **Ctrl+Alt+S** (default) stops reading at any moment.
 
-1. Zaznaczasz dowolny tekst — w przeglądarce, Wordzie, PDF-ie, mailu, gdziekolwiek.
-2. Wciskasz globalny skrót (domyślnie **Ctrl+Alt+R**).
-3. Papuga kopiuje zaznaczenie, wysyła je do wybranego silnika mowy i odtwarza audio.
-   Długie teksty są dzielone na zdania — mowa rusza po wygenerowaniu pierwszego,
-   a resztę Papuga generuje w tle w trakcie czytania.
-4. **Ctrl+Alt+S** (domyślnie) przerywa czytanie w dowolnym momencie.
+The tray icon changes colour: green = ready, orange = reading, red = error.
 
-Ikona w trayu zmienia kolor: zielona = gotowa, pomarańczowa = czyta, czerwona = błąd
-(np. brak internetu przy silniku online).
+## Languages (great for language learners)
 
-## Trzy silniki mowy do wyboru
+Pick the **reading language** in the settings — Spanish, French, German, English, Japanese,
+Polish and about 70 more — and Papuga reads the selected text with a voice for that language.
+Learning a language? Right-click the tray icon → **Reading language** to switch between the
+languages you use most, without opening the settings.
 
-Wybierasz w oknie ustawień (prawy klik na ikonę trayu → *Ustawienia...*):
+The list of languages and voices depends on the engine:
 
-| Silnik | Offline? | Jakość głosu | Wymaga |
+| Engine | Works offline? | Languages / voices | Notes |
 |---|---|---|---|
-| **Edge TTS** | Nie (potrzebuje internetu) | Bardzo naturalne głosy Microsoft | nic — działa od razu |
-| **Piper** | Tak, w 100% lokalnie | Dobra, lekko syntetyczna | jednorazowe pobranie modelu głosu (~60 MB) oraz program `piper` w PATH (patrz niżej) |
-| **API** | Nie | Zależy od dostawcy (ElevenLabs = najlepsza jakość na rynku) | własny klucz API |
+| **Edge TTS** (default) | No (needs internet) | 75 languages, 300+ natural voices | Some voices are multilingual. Free, no key. |
+| **Piper** | **Yes, fully** | 49 languages, 170 voices | Built in. The voice you choose is downloaded once (~60 MB) on first use, then works offline. |
+| **API** | No | Whatever your provider offers | OpenAI-compatible endpoints, ElevenLabs, custom URL. Needs your own API key. |
 
-Uwaga: mimo nazwy, Edge TTS **nie wymaga** zainstalowanej przeglądarki Microsoft Edge —
-to zwykłe zapytania HTTP do publicznego endpointu, więc silnik działa identycznie
-na Windows i na Linuksie.
+> The settings only list languages the selected engine has voices for. If you switch to an
+> engine that does not support your current language, Papuga selects English.
 
-Silnik **API** obsługuje od razu:
-- dowolny endpoint kompatybilny z OpenAI `/v1/audio/speech` (w tym lokalne serwery),
-- ElevenLabs,
-- dowolny inny endpoint OpenAI-compatible pod niestandardowym URL-em (`custom`).
+## Settings
 
-### Piper a gotowy plik .exe
+Right-click the tray icon → *Settings...*:
 
-Piper uruchamia zewnętrzny program `piper` (instalowany razem z pakietem `piper-tts`).
-Samodzielny `.exe` z wydania go **nie zawiera**, więc żeby używać Pipera, zainstaluj go
-osobno i upewnij się, że `piper` jest w `PATH`:
+- speech engine, reading language and voice,
+- both keyboard shortcuts — click the field and **press the combination you want** (no typing
+  needed); the **Windows** key is supported, Esc cancels. Shortcuts reserved by Windows
+  (e.g. Win+R) are still handled by the system,
+- speech speed (0.5×–2.0×),
+- interface language (English or Polish; “Automatic” follows your system).
 
-```bash
-pip install piper-tts
-```
+The config is saved automatically (`%APPDATA%\Papuga\config.json` on Windows). Logs:
+`%LOCALAPPDATA%\Papuga\Logs\papuga.log`. Downloaded Piper voices:
+`%LOCALAPPDATA%\Papuga\piper_voices`.
 
-Edge TTS i API działają w `.exe` bez żadnych dodatkowych kroków.
+### Start with Windows
 
-## Ustawienia
+`Win+R` → `shell:startup` → put a shortcut to `Papuga.exe` there.
 
-Wszystko konfiguruje się w GUI (prawy klik na ikonę trayu → *Ustawienia...*):
+## Run from source
 
-- silnik mowy i głos,
-- oba skróty klawiszowe — kliknij pole i **wciśnij wybraną kombinację** (nie trzeba nic
-  wpisywać); można użyć klawisza **Windows**, Esc anuluje nagrywanie. Skróty zarezerwowane
-  przez system (np. Win+R) i tak otworzy Windows,
-- prędkość mowy (0.5x–2.0x).
-
-Konfiguracja zapisuje się automatycznie w standardowym katalogu konfiguracyjnym
-systemu (np. `%APPDATA%\Papuga\config.json` na Windows). Logi:
-`%LOCALAPPDATA%\Papuga\Logs\papuga.log`.
-
-### Autostart z systemem Windows
-
-Najprościej: `Win+R` → `shell:startup` → wrzuć tam skrót do `Papuga.exe`.
-
-## Uruchomienie ze źródeł (tryb deweloperski)
-
-Wymaga Pythona 3.11+.
+Requires Python 3.11+.
 
 ```bash
 python -m venv .venv
@@ -101,80 +86,69 @@ python -m venv .venv
 ./.venv/bin/python scripts/run_dev.py
 ```
 
-Na Linuksie do obsługi Pipera potrzebny jest dodatkowo pakiet `espeak-ng`
-(silnik fonemizujący tekst przed syntezą):
+Ready-made releases are currently built for Windows only. On Linux run from source or build
+it yourself (`./scripts/build_linux.sh` → `dist/Papuga`; not covered by automated releases).
 
-```bash
-sudo apt install espeak-ng   # Debian/Ubuntu
-sudo pacman -S espeak-ng     # Arch
-```
-
-Gotowe wydania są obecnie budowane tylko dla Windows. Na Linuksie uruchamiaj ze źródeł
-lub zbuduj samodzielnie (`./scripts/build_linux.sh` → `dist/Papuga`; ten wariant nie jest
-objęty automatycznymi wydaniami).
-
-## Budowanie pliku .exe lokalnie (Windows)
-
-Buduj **na Windowsie** (PyInstaller nie kompiluje krzyżowo między systemami):
+## Build the .exe locally (Windows)
 
 ```powershell
 .\scripts\build_windows.ps1
 ```
 
-Wynik: `dist\Papuga.exe` — jeden plik, do skopiowania gdziekolwiek.
+Result: `dist\Papuga.exe` — a single file. Build on Windows (PyInstaller does not cross-compile).
+`Papuga.exe --selftest` checks the built file: it synthesizes speech with Piper, opens a Tk
+window and loads the voice catalog (result in the log and the exit code).
 
-## Wersjonowanie i wydania
+## Versioning and releases
 
-Wersja aplikacji ma jedno źródło prawdy: `__version__` w [`papuga/__init__.py`](papuga/__init__.py)
-([SemVer](https://semver.org/lang/pl/)). Wydanie nowej wersji:
+The app version has a single source of truth: `__version__` in
+[`papuga/__init__.py`](papuga/__init__.py) ([SemVer](https://semver.org/)). To release:
 
 ```bash
-# 1. podbij __version__ w papuga/__init__.py i zacommituj
-# 2. oznacz commit tagiem zgodnym z wersją i wypchnij
-git tag v0.2.0
-git push origin v0.2.0
+# 1. bump __version__ in papuga/__init__.py and commit
+# 2. tag the commit with the same version and push the tag
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
-Workflow [`release.yml`](.github/workflows/release.yml) sprawdzi, czy tag zgadza się
-z `__version__`, zbuduje `Papuga.exe` na Windowsie i opublikuje go w *Releases* razem
-z sumą SHA-256 oraz automatycznymi notatkami wydania.
+The [`release.yml`](.github/workflows/release.yml) workflow checks that the tag matches
+`__version__`, builds `Papuga.exe` on Windows, runs the self-test and publishes it under
+*Releases* with a SHA-256 checksum and generated release notes.
 
-## Struktura projektu
+## Project layout
 
 ```
 papuga/
-  __init__.py       wersja (__version__), nazwa, link do autora i repozytorium
-  main.py           punkt wejścia (uruchamia tray)
-  app.py            spina hotkey + zaznaczenie + TTS + odtwarzanie + tray
-  config.py         wczytywanie/zapis ustawień (JSON)
-  selection.py      pobieranie zaznaczonego tekstu (symulacja Ctrl+C)
-  hotkey.py         globalne skróty klawiszowe + rejestrator skrótów dla UI (pynput)
-  player.py         odtwarzanie audio (pygame)
-  singleinstance.py blokada jednej działającej instancji
-  tts/
-    base.py         wspólny interfejs silników
-    edge_engine.py  Microsoft Edge TTS (online, darmowy)
-    piper_engine.py Piper (offline, lokalny, ONNX)
-    api_engine.py   generyczne API (OpenAI-compatible / ElevenLabs)
-  ui/
-    settings_window.py  okno ustawień (customtkinter)
+  __init__.py       version (__version__), name, author and repository links
+  main.py           entry point (tray), --selftest
+  app.py            wires hotkey + selection + TTS + playback + tray
+  config.py         settings (JSON)
+  i18n.py           interface translations (English, Polish)
+  voices.py         language and voice catalog (reads data/voices.json)
+  data/voices.json  snapshot of the Edge TTS and Piper voice catalogs
+  selection.py      reads the selected text (simulated Ctrl+C)
+  hotkey.py         global shortcuts + shortcut recorder for the UI (pynput)
+  player.py         audio playback (pygame)
+  singleinstance.py single running instance (Windows named mutex)
+  tts/              speech engines (edge_engine, piper_engine, api_engine)
+  ui/settings_window.py   settings window (customtkinter)
 scripts/
-  generate_icon.py  generuje ikony aplikacji
-  build_windows.ps1  buduje Papuga.exe
-  build_linux.sh      buduje binarkę na Linux
-  run_dev.py          szybkie odpalenie bez pakowania
-.github/workflows/
-  release.yml       build .exe i publikacja wydania po wypchnięciu tagu vX.Y.Z
-papuga.spec         konfiguracja PyInstaller
+  update_voice_catalogs.py   refreshes data/voices.json
+  generate_icon.py, build_windows.ps1, build_linux.sh, run_dev.py
+.github/workflows/release.yml   build + release on a vX.Y.Z tag
+papuga.spec         PyInstaller configuration
 ```
 
-## Dodanie nowego silnika TTS
+To add a language interface translation, add a block to `STRINGS` in
+[`papuga/i18n.py`](papuga/i18n.py) and register it in `UI_LANGUAGES`.
+To add a speech engine, implement `papuga.tts.base.TTSEngine`
+(`synthesize(text, out_dir, speed) -> Path`) and register it in `papuga/tts/__init__.py`.
 
-Każdy silnik implementuje `papuga.tts.base.TTSEngine` (jedna metoda:
-`synthesize(text, out_dir, speed) -> Path`). Wystarczy dodać nową klasę
-w `papuga/tts/`, zarejestrować ją w `papuga/tts/__init__.py::build_engine()`
-i dodać opcję w oknie ustawień.
+## License
 
-## Licencja
-
-[MIT](LICENSE) © 2026 [qbac](https://github.com/qbac)
+Papuga is free software under the **[GNU GPL v3 or later](LICENSE)** © 2026
+[qbac](https://github.com/qbac). It bundles [Piper](https://github.com/OHF-Voice/piper1-gpl)
+(GPL-3.0-or-later), which is why the whole program is GPL.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for all components and for the
+**voice licenses** — each Piper voice has its own license, and Edge TTS is an unofficial
+client of a Microsoft service (Papuga is not affiliated with Microsoft).

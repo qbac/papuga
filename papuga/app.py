@@ -18,8 +18,8 @@ from PIL import Image, ImageDraw
 from papuga import APP_NAME
 from papuga import config as cfg
 from papuga import hotkey as hk
-from papuga import player
-from papuga import selection
+from papuga import i18n, player, selection, voices
+from papuga.i18n import t
 from papuga.tts import build_engine, TTSError
 
 logger = logging.getLogger("papuga.app")
@@ -85,6 +85,7 @@ def _split_text(text: str, first: int = FIRST_CHUNK_CHARS, rest: int = NEXT_CHUN
 class PapugaApp:
     def __init__(self) -> None:
         self.settings = cfg.load()
+        i18n.set_language(self.settings.ui_language)
         self.hotkeys = hk.HotkeyManager()
         self._busy_lock = threading.Lock()
         self._is_speaking = False
@@ -129,13 +130,33 @@ class PapugaApp:
             self.hotkeys.start(bindings)
         except Exception:
             logger.exception("Rejestracja skrótów nie powiodła się")
-            self._notify("Papuga", "Nie udało się zarejestrować skrótów klawiszowych.")
+            self._notify("Papuga", t("hotkeys_register_failed"))
 
     def reload_settings(self) -> None:
         """Wywoływane po zapisaniu ustawień w oknie konfiguracji."""
         self.settings = cfg.load()
+        i18n.set_language(self.settings.ui_language)
         self._register_hotkeys()
         self.tray.title = self._tray_title()
+        self.tray.update_menu()
+
+    def _set_language(self, code: str) -> None:
+        """Szybka zmiana języka czytania z menu w trayu."""
+        s = self.settings
+        s.language = code
+        cfg.normalize(s)  # dobiera domyślne głosy dla nowego języka
+        s.recent_languages = ([code] + [c for c in s.recent_languages if c != code])[:8]
+        cfg.save(s)
+        self.tray.title = self._tray_title()
+        self.tray.update_menu()
+
+    def _quick_languages(self) -> list[str]:
+        order = [self.settings.language, *self.settings.recent_languages, "en", "pl", "es", "fr", "de"]
+        seen: list[str] = []
+        for code in order:
+            if code and code not in seen and voices.is_known_language(code):
+                seen.append(code)
+        return seen[:8]
 
     # ------------------------------------------------------------------ #
     # Czytanie zaznaczenia
@@ -170,7 +191,7 @@ class PapugaApp:
 
             text = selection.get_selected_text()
             if not text:
-                self._notify(APP_NAME, "Nie zaznaczono żadnego tekstu.")
+                self._notify(APP_NAME, t("no_selection"))
                 return
 
             self._speak(text)
@@ -182,7 +203,7 @@ class PapugaApp:
         except Exception:
             logger.exception("Nieoczekiwany błąd podczas czytania")
             self._set_icon(ICON_ERROR)
-            self._notify(APP_NAME, "Wystąpił nieoczekiwany błąd. Sprawdź logi.")
+            self._notify(APP_NAME, t("unexpected_error"))
         finally:
             self._is_speaking = False
             self._set_icon(ICON_IDLE)
@@ -193,6 +214,8 @@ class PapugaApp:
         więc mowa rusza po wygenerowaniu pierwszego, krótkiego kawałka."""
         engine = build_engine(self.settings)
         speed = self.settings.speed
+        if getattr(engine, "needs_download", None) and engine.needs_download():
+            self._notify(APP_NAME, t("dl_voice", mb=engine.download_size_mb()))
         ready: queue.Queue = queue.Queue(maxsize=2)
 
         def put(item) -> bool:
@@ -243,14 +266,33 @@ class PapugaApp:
     # Tray UI
     # ------------------------------------------------------------------ #
     def _build_menu(self) -> pystray.Menu:
+        # Teksty jako funkcje, żeby menu odświeżało się po zmianie języka interfejsu/skrótów.
         return pystray.Menu(
-            pystray.MenuItem(f"Czytaj zaznaczenie  ({self.settings.hotkey_read})", lambda: self._trigger_read()),
-            pystray.MenuItem(f"Zatrzymaj  ({self.settings.hotkey_stop})", lambda: self._trigger_stop()),
+            pystray.MenuItem(
+                lambda item: f"{t('tray_read')}  ({hk.prettify(self.settings.hotkey_read)})",
+                lambda: self._trigger_read(),
+            ),
+            pystray.MenuItem(
+                lambda item: f"{t('tray_stop')}  ({hk.prettify(self.settings.hotkey_stop)})",
+                lambda: self._trigger_stop(),
+            ),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Ustawienia...", self._open_settings),
+            pystray.MenuItem(lambda item: t("tray_language"), pystray.Menu(self._language_items)),
+            pystray.MenuItem(lambda item: t("tray_settings"), self._open_settings),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Zakończ", self.quit),
+            pystray.MenuItem(lambda item: t("tray_quit"), self.quit),
         )
+
+    def _language_items(self):
+        def make(code: str) -> pystray.MenuItem:
+            return pystray.MenuItem(
+                voices.language_label(code),
+                lambda icon, item: self._set_language(code),
+                checked=lambda item: self.settings.language == code,
+                radio=True,
+            )
+
+        return [make(code) for code in self._quick_languages()]
 
     def _open_settings(self, *_args) -> None:
         from papuga.ui.settings_window import open_settings_window
@@ -267,8 +309,9 @@ class PapugaApp:
             logger.info("%s: %s", title, message)
 
     def _tray_title(self) -> str:
-        engine_names = {"edge": "Edge TTS", "piper": "Piper (offline)", "api": "API"}
-        return f"{APP_NAME} — {engine_names.get(self.settings.engine, self.settings.engine)}"
+        engine_names = {"edge": "Edge TTS", "piper": "Piper", "api": "API"}
+        engine = engine_names.get(self.settings.engine, self.settings.engine)
+        return f"{APP_NAME} — {engine} · {self.settings.language.upper()}"
 
 
 def _make_icon(rgb: tuple[int, int, int]) -> Image.Image:

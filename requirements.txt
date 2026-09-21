@@ -10,8 +10,8 @@ platformdirs>=4.0.0
 # Silnik edge-tts (darmowe głosy neuronowe Microsoft)
 edge-tts>=6.1.0
 
-# Silnik Piper (lokalny, offline TTS)
-piper-tts>=1.2.0
+# Silnik Piper (lokalny, offline TTS) — biblioteka wbudowywana w .exe (GPL-3.0-or-later)
+piper-tts>=1.3.0
 
 # Silnik API (OpenAI-compatible / ElevenLabs) — tylko żądania HTTP
 requests>=2.31.0

@@ -41,10 +41,70 @@ def _setup_logging() -> None:
     )
 
 
+def _selftest() -> int:
+    """`Papuga.exe --selftest`: sprawdza w zbudowanym pliku to, czego nie widać na starcie
+    (Piper offline, Tk/customtkinter, katalog głosów, Edge TTS). Wynik: log + kod wyjścia."""
+    import tempfile
+    import wave
+
+    log = logging.getLogger("papuga.selftest")
+    failures: list[str] = []
+
+    def check(name: str, fn) -> None:
+        try:
+            log.info("SELFTEST %s: %s", name, fn() or "OK")
+        except Exception as exc:  # noqa: BLE001
+            log.exception("SELFTEST %s: BŁĄD", name)
+            failures.append(f"{name}: {exc}")
+
+    def catalog() -> str:
+        from papuga import voices
+
+        return f"{len(voices.language_codes())} języków"
+
+    def piper() -> str:
+        from papuga.tts.piper_engine import PiperTTSEngine
+
+        out = Path(tempfile.gettempdir()) / "papuga_selftest"
+        wav = PiperTTSEngine("en_US-lessac-low").synthesize("Papuga self test.", out)
+        with wave.open(str(wav)) as w:
+            seconds = w.getnframes() / w.getframerate()
+        wav.unlink(missing_ok=True)
+        if seconds < 0.5:
+            raise RuntimeError(f"za krótkie audio ({seconds:.2f}s)")
+        return f"wygenerowano {seconds:.1f}s audio"
+
+    def edge_import() -> str:
+        import edge_tts  # noqa: F401
+
+    def tk_window() -> str:
+        import customtkinter as ctk
+
+        root = ctk.CTk()
+        root.update()
+        root.destroy()
+
+    def audio_mixer() -> str:
+        os.environ.setdefault("SDL_AUDIODRIVER", "dummy")  # CI nie ma karty dźwiękowej
+        from papuga import player
+
+        player.warm_up()
+
+    for name, fn in (("catalog", catalog), ("piper", piper), ("edge_import", edge_import),
+                     ("tk_window", tk_window), ("audio_mixer", audio_mixer)):
+        check(name, fn)
+
+    log.info("SELFTEST %s", "PASSED" if not failures else f"FAILED: {failures}")
+    return 0 if not failures else 1
+
+
 def main() -> None:
     _fix_tcl_paths()
     _setup_logging()
     logger = logging.getLogger("papuga.main")
+
+    if "--selftest" in sys.argv:
+        sys.exit(_selftest())
 
     lock = SingleInstance(APP_NAME)
     if not lock.acquire():

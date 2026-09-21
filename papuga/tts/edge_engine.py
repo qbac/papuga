@@ -4,6 +4,8 @@ co "Czytaj na głos" w przeglądarce Edge). Wymaga internetu, nie wymaga
 klucza API. Działa identycznie na Windows, Linux i macOS — to zwykłe
 zapytania HTTP do publicznego endpointu Microsoftu, więc mimo nazwy nie
 jest potrzebna zainstalowana przeglądarka Edge.
+
+Lista głosów i języków: papuga/data/voices.json (patrz papuga/voices.py).
 """
 from __future__ import annotations
 
@@ -11,24 +13,22 @@ import asyncio
 import uuid
 from pathlib import Path
 
+from papuga import voices
+from papuga.i18n import t
 from papuga.tts.base import TTSEngine, TTSError
-
-# Kilka sensownych polskich głosów do wyboru w UI.
-POLISH_VOICES = [
-    "pl-PL-MarekNeural",     # męski
-    "pl-PL-ZofiaNeural",     # żeński
-    "pl-PL-AgnieszkaNeural", # żeński (starszy głos, wciąż wspierany)
-]
 
 
 class EdgeTTSEngine(TTSEngine):
     name = "edge"
 
-    def __init__(self, voice: str = "pl-PL-MarekNeural") -> None:
+    def __init__(self, voice: str = "") -> None:
         self.voice = voice
 
     def synthesize(self, text: str, out_dir: Path, speed: float = 1.0) -> Path:
         import edge_tts  # import lokalny — nieużywany silnik nie ciągnie zależności
+
+        if not self.voice:
+            raise TTSError(t("err_edge_no_voice"))
 
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"papuga_{uuid.uuid4().hex}.mp3"
@@ -42,15 +42,15 @@ class EdgeTTSEngine(TTSEngine):
         try:
             asyncio.run(_run())
         except Exception as exc:  # noqa: BLE001
-            raise TTSError(f"edge-tts: nie udało się wygenerować mowy ({exc})") from exc
+            raise TTSError(t("err_edge_failed", error=exc)) from exc
 
         if not out_path.exists() or out_path.stat().st_size == 0:
-            raise TTSError("edge-tts: nie otrzymano audio (sprawdź połączenie z internetem)")
+            raise TTSError(t("err_edge_no_audio"))
 
         return out_path
 
     def list_voices(self) -> list[str]:
-        return POLISH_VOICES
+        return [v["id"] for vs in voices.catalog()["edge"].values() for v in vs]
 
 
 def _speed_to_rate(speed: float) -> str:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from papuga.config import Settings
+from papuga.i18n import t
 from papuga.tts.base import TTSEngine, TTSError
 from papuga.tts.edge_engine import EdgeTTSEngine
 from papuga.tts.piper_engine import PiperTTSEngine
@@ -23,4 +24,4 @@ def build_engine(settings: Settings) -> TTSEngine:
             model=settings.api_model,
             voice=settings.api_voice,
         )
-    raise TTSError(f"Nieznany silnik: {settings.engine}")
+    raise TTSError(t("err_unknown_engine", engine=settings.engine))

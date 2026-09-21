@@ -118,7 +118,7 @@ class HotkeyCapture:
             self.cancelled = True
             return False
         if not self._mods and not (token.startswith("<f") and token[2:-1].isdigit()):
-            self.error = "Dodaj modyfikator (Ctrl, Alt, Shift lub Win)."
+            self.error = "need_modifier"  # klucz tłumaczenia (i18n), tłumaczony w UI
             return None
         self.error = None
         ordered = [f"<{m}>" for m in _MODIFIER_ORDER if m in self._mods]
