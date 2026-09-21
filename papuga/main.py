@@ -84,6 +84,34 @@ def _selftest() -> int:
         root.update()
         root.destroy()
 
+    def settings_window() -> str:
+        """Buduje PRAWDZIWE okno ustawień (wszystkie widgety, importy, katalog głosów) i od razu
+        je zamyka — wyłapuje braki w zbudowanym pliku, których sam start Tk nie pokaże."""
+        import customtkinter as ctk
+
+        from papuga.ui import settings_window as sw
+
+        class _Hotkeys:
+            @staticmethod
+            def stop() -> None:
+                pass
+
+        class _App:
+            hotkeys = _Hotkeys()
+
+            def _register_hotkeys(self) -> None:
+                pass
+
+            def reload_settings(self) -> None:
+                pass
+
+        original = ctk.CTk.mainloop
+        ctk.CTk.mainloop = lambda self, *a, **k: (self.update(), self.destroy())
+        try:
+            sw.open_settings_window(_App())
+        finally:
+            ctk.CTk.mainloop = original
+
     def audio_mixer() -> str:
         os.environ.setdefault("SDL_AUDIODRIVER", "dummy")  # CI nie ma karty dźwiękowej
         from papuga import player
@@ -91,7 +119,8 @@ def _selftest() -> int:
         player.warm_up()
 
     for name, fn in (("catalog", catalog), ("piper", piper), ("edge_import", edge_import),
-                     ("tk_window", tk_window), ("audio_mixer", audio_mixer)):
+                     ("tk_window", tk_window), ("settings_window", settings_window),
+                     ("audio_mixer", audio_mixer)):
         check(name, fn)
 
     log.info("SELFTEST %s", "PASSED" if not failures else f"FAILED: {failures}")
