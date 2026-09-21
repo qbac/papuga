@@ -8,6 +8,12 @@
 Select text anywhere on your computer, press a shortcut, and listen to it.
 Papuga lives in the system tray, reads **80 languages**, and works **fully offline** if you want it to.
 
+<p align="center">
+  <img src="docs/images/settings-en.png" alt="Papuga settings window: Edge TTS, English" width="320">
+  &nbsp;
+  <img src="docs/images/settings-piper-en.png" alt="Papuga settings window: built-in offline Piper engine, Spanish" width="320">
+</p>
+
 ## Download (Windows)
 
 Get **`Papuga-vX.Y.Z-windows-x64.exe`** from the

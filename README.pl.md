@@ -8,6 +8,10 @@
 Zaznacz tekst gdziekolwiek na komputerze, wciśnij skrót klawiszowy i posłuchaj.
 Papuga siedzi w zasobniku systemowym, czyta w **80 językach** i — jeśli chcesz — działa **w pełni offline**.
 
+<p align="center">
+  <img src="docs/images/settings-pl.png" alt="Okno ustawień Papugi: Edge TTS, język polski" width="320">
+</p>
+
 ## Pobieranie (Windows)
 
 Pobierz **`Papuga-vX.Y.Z-windows-x64.exe`** z
